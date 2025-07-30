@@ -197,7 +197,6 @@ class FetchUserView(APIView):
                 userData = {
                     "id": item.id,
                     "name": item.first_name + " " + item.last_name,
-                    "department": item.department
                 }
                 data.append(userData)
         
@@ -217,7 +216,7 @@ class ResetPasswordView(APIView):
             user = User.objects.get(email=email)
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            reset_url = settings.FRONTEND_URL + f"/sign-up/reset-password/?uid={uid}&token={token}"
+            reset_url = settings.FRONTEND_URL + f"/reset-password/?uid={uid}&token={token}"
             email_from = settings.EMAIL_HOST_USER
             recipient_list = [user.email,]
 

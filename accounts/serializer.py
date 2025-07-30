@@ -61,8 +61,9 @@ class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
 
     class Meta:
-        model=User
+        model = User
         fields = [
+            'id',  # Add this line
             'email',
             'name',
         ]
@@ -70,7 +71,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_name(self, obj):
         fname = obj.first_name.capitalize()
         lname = obj.last_name.capitalize()
-
         return fname + ' ' + lname
 
 class PermissionSerializer(serializers.ModelSerializer):

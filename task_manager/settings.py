@@ -36,15 +36,18 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',  # For WebSocket support
     'rest_framework_simplejwt',
     'corsheaders',
     'accounts',
+    'task'
 ]
 
 MIDDLEWARE = [
@@ -64,6 +67,27 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ]
+}
+
+# WebSocket settings
+ASGI_APPLICATION = 'task_manager.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',  # Changed to django-redis
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
 }
 
 TEMPLATES = [
@@ -143,6 +167,8 @@ AUTH_PASSWORD_VALIDATORS = [
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=30),
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=30),
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': 'django-insecure-11=oi&y$(%4pk&uf^4ainjmntu3_68i)%57hk9i0oa(gcwj88e',  # Must match SECRET_KEY or token generation key
 }
 
 # Internationalization
