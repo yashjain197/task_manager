@@ -1,5 +1,17 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, Permission
+
+DEFAULT_PERMISSIONS = {
+    'Admin': [
+        'manage_users',
+        'manage_tasks',
+        'view_reports',
+    ],
+    'User': [
+        'view_tasks',
+        'update_task_status',
+    ],
+}
 
 class SignUpSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,12 +31,6 @@ class SignUpSerializer(serializers.ModelSerializer):
             }
         }
 
-    # def validate_email(self, value):
-    #     domain = value.split('@')[1]
-    #     if domain not in ['ornatesolar.com', 'ornatesolar.in', 'ornateinroof.in', 'ornateinroof.com']:
-    #         raise serializers.ValidationError("Only emails with ornatesolar.com or ornatesolar.in domain are allowed.")
-    #     return value
-
     def create(self, validated_data):
         email = validated_data['email'].lower()
         first_name = validated_data['first_name'].lower()
@@ -43,6 +49,12 @@ class SignUpSerializer(serializers.ModelSerializer):
         password = validated_data['password']
         user.set_password(password)
         user.save()
+
+        # Assign default permissions based on role
+        if role in DEFAULT_PERMISSIONS:
+            for perm in DEFAULT_PERMISSIONS[role]:
+                Permission.objects.create(user=user, permission_name=perm)
+
         return user
     
 class UserSerializer(serializers.ModelSerializer):
@@ -60,5 +72,8 @@ class UserSerializer(serializers.ModelSerializer):
         lname = obj.last_name.capitalize()
 
         return fname + ' ' + lname
-    
-    
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'permission_name', 'created_at', 'updated_at']

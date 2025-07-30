@@ -30,8 +30,6 @@ class CustomUserManager(BaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
-
-# Create your models here.
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=150, unique=False, blank=True, null=True)
@@ -40,19 +38,13 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    
     ADMIN = 'Admin'
     USER = 'User'
-
     
     ROLE_CHOICES = [
         (ADMIN, 'Admin'),
         (USER, 'User'), 
     ]
-    # Roles should have different model
-    # Permission for a perticular user
-    # permission and roles mapping
-    # users and roles mapping 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=USER)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = [] 
@@ -77,3 +69,15 @@ class OTP(models.Model):
 
     def is_valid(self, user_otp):
         return self.otp == str(user_otp) and timezone.now() <= self.expiry_time
+
+class Permission(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='permissions')
+    permission_name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'permission_name')
+
+    def __str__(self):
+        return f"{self.user.email} - {self.permission_name}"

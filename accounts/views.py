@@ -5,20 +5,20 @@ from django.core.mail import send_mail
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
 from task_manager import settings
-
 from .utils import generate_otp
-from .models import OTP, User
+from .models import OTP, User, Permission
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
-from .serializer import SignUpSerializer, UserSerializer
+from .serializer import SignUpSerializer, UserSerializer, PermissionSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.urls import reverse
 from django.http import JsonResponse
+from django.http import Http404
+from django.db import IntegrityError
 
 def get_auth_for_user(user):
     tokens = RefreshToken.for_user(user)
@@ -66,13 +66,6 @@ class SigninView(APIView):
                         "status": 400,
                         "message": "Wrong Password"
                     })
-        # else:
-        #     output = {
-        #         "success": False,
-        #         "status":400,
-        #         "message": "Wrong Password"
-        #     }
-        #     return Response(output, status=status.HTTP_200_OK)
         
         user_data = get_auth_for_user(user)
         user_data["user_role"] = role
@@ -86,15 +79,6 @@ class SigninView(APIView):
 
 class SignupView(APIView):
     permission_classes = [AllowAny]
-
-    # def post(self, request):
-    #     new_user = SignUpSerializer(data=request.data)
-    #     new_user.is_valid(raise_exception=True)
-    #     user = new_user.save()
-
-    #     user_data = get_auth_for_user(user)  # You need to define this function
-
-    #     return Response(user_data)
 
     def post(self, request):
         role = request.data.get('role', '')
@@ -136,7 +120,6 @@ class SignupView(APIView):
                             "message": "Otp sent successfully",
                                 })
         else:
-            # Handle validation errors
             return Response(new_user.errors, status=status.HTTP_200_OK)
         
 class verifyOTP(APIView):
@@ -208,7 +191,6 @@ class FetchUserView(APIView):
             user = User.objects.filter(role=role).order_by('first_name')
         else:
             user = User.objects.all().order_by('first_name')
-        # user = user
         data = []
         for item in user:
             if item.first_name is not "":
@@ -289,3 +271,118 @@ class ConfirmResetPasswordView(APIView):
                 "message": "Some error occurred",
                 "error": e
             })
+
+class PermissionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role == 'Admin':
+            user_id = request.query_params.get('user_id', request.user.id)
+        else:
+            user_id = request.user.id
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'status': 404,
+                'message': 'User not found'
+            }, status=status.HTTP_200_OK)
+
+        permissions = Permission.objects.filter(user=user)
+        serializer = PermissionSerializer(permissions, many=True)
+        return Response({
+            'success': True,
+            'status': 200,
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if request.user.role != 'Admin':
+            return Response({
+                'success': False,
+                'status': 403,
+                'message': 'Only Admins can create permissions'
+            }, status=status.HTTP_200_OK)
+
+        try:
+            serializer = PermissionSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    'success': True,
+                    'status': 201,
+                    'data': serializer.data
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                'success': False,
+                'status': 400,
+                'message': serializer.errors
+            }, status=status.HTTP_200_OK)
+        except IntegrityError:
+            return Response({
+                'success': False,
+                'status': 400,
+                'message': 'Permission already exists for this user'
+            }, status=status.HTTP_200_OK)
+
+class PermissionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        try:
+            return Permission.objects.get(pk=pk)
+        except Permission.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk):
+        permission = self.get_object(pk)
+        serializer = PermissionSerializer(permission)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        if request.user.role != 'Admin':
+            return Response({
+                'success': False,
+                'status': 403,
+                'message': 'Only Admins can update permissions'
+            }, status=status.HTTP_200_OK)
+
+        permission = self.get_object(pk)
+        serializer = PermissionSerializer(permission, data=request.data)
+        try:
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    'success': True,
+                    'status': 200,
+                    'data': serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                'success': False,
+                'status': 400,
+                'message': serializer.errors
+            }, status=status.HTTP_200_OK)
+        except IntegrityError:
+            return Response({
+                'success': False,
+                'status': 400,
+                'message': 'Permission already exists for this user'
+            }, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        if request.user.role != 'Admin':
+            return Response({
+                'success': False,
+                'status': 403,
+                'message': 'Only Admins can delete permissions'
+            }, status=status.HTTP_200_OK)
+
+        permission = self.get_object(pk)
+        permission.delete()
+        return Response({
+            'success': True,
+            'status': 204,
+            'message': 'Permission deleted successfully'
+        }, status=status.HTTP_200_OK)
